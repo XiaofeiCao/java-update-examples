@@ -1,6 +1,6 @@
 package com.rundeck.plugins.azure.azure
 
-import com.microsoft.azure.management.compute.VirtualMachineSizeTypes;
+import com.azure.resourcemanager.compute.models.VirtualMachineSizeTypes;
 
 import java.util.List;
 

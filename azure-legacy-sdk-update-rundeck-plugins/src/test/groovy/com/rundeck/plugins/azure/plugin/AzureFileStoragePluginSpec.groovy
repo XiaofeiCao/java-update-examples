@@ -1,6 +1,5 @@
 package com.rundeck.plugins.azure.plugin
 
-import com.microsoft.azure.storage.blob.CloudBlockBlob
 import spock.lang.Specification
 
 /**

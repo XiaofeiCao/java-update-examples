@@ -9,7 +9,7 @@ import com.dtolabs.rundeck.plugins.ServiceNameConstants
 import com.dtolabs.rundeck.plugins.step.PluginStepContext
 import com.dtolabs.rundeck.plugins.step.StepPlugin
 import com.dtolabs.rundeck.plugins.util.DescriptionBuilder
-import com.microsoft.azure.management.resources.fluentcore.arm.Region
+import com.azure.core.management.Region
 import com.rundeck.plugins.azure.azure.AzureManager
 import com.rundeck.plugins.azure.azure.AzureManagerBuilder
 import com.rundeck.plugins.azure.util.AzurePluginUtil

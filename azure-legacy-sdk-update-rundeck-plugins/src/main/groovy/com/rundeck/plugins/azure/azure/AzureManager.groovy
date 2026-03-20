@@ -1,14 +1,15 @@
 package com.rundeck.plugins.azure.azure
 
 import com.dtolabs.rundeck.core.resources.ResourceModelSourceException
-import com.microsoft.azure.AzureEnvironment
-import com.microsoft.azure.CloudException
-import com.microsoft.azure.credentials.ApplicationTokenCredentials
-import com.microsoft.azure.management.Azure
-import com.microsoft.azure.management.compute.VirtualMachine
-import com.microsoft.azure.management.compute.VirtualMachineSize
-import com.microsoft.azure.management.resources.fluentcore.arm.Region
-import com.microsoft.azure.management.resources.fluentcore.utils.SdkContext
+import com.azure.core.management.AzureEnvironment
+import com.azure.core.management.exception.ManagementException
+import com.azure.core.management.Region
+import com.azure.core.management.profile.AzureProfile
+import com.azure.identity.ClientCertificateCredentialBuilder
+import com.azure.identity.ClientSecretCredentialBuilder
+import com.azure.resourcemanager.AzureResourceManager
+import com.azure.resourcemanager.compute.models.VirtualMachine
+import com.azure.resourcemanager.compute.models.VirtualMachineSize
 import com.rundeck.plugins.azure.util.AzurePluginUtil
 /**
  * Created by luistoledo on 11/6/17.
@@ -30,28 +31,37 @@ class AzureManager {
     boolean debug
     boolean useAzureTags
 
-    Azure azure
+    AzureResourceManager azure
 
     AzureManager() {
     }
 
     //for test only
-    void setAzure(Azure azure) {
+    void setAzure(AzureResourceManager azure) {
         this.azure = azure
     }
 
-    Azure connect(){
-        ApplicationTokenCredentials credentials
+    AzureResourceManager connect(){
 
         if(this.key!=null){
-            credentials = new ApplicationTokenCredentials(this.clientId, this.tenantId, this.key, AzureEnvironment.AZURE);
-            azure = Azure.authenticate(credentials).withSubscription(this.subscriptionId);
+            def credential = new ClientSecretCredentialBuilder()
+                    .clientId(this.clientId)
+                    .clientSecret(this.key)
+                    .tenantId(this.tenantId)
+                    .build()
+            AzureProfile profile = new AzureProfile(this.tenantId, this.subscriptionId, AzureEnvironment.AZURE)
+            azure = AzureResourceManager.authenticate(credential, profile).withSubscription(this.subscriptionId)
         }
 
         if(this.pfxCertificatePath!=null && this.pfxCertificatePassword!=null){
-            credentials = new ApplicationTokenCredentials(
-                    this.clientId, this.tenantId, this.pfxCertificatePath as byte[], this.pfxCertificatePassword, AzureEnvironment.AZURE);
-            azure = Azure.authenticate(credentials).withSubscription(subscriptionId);
+            def credential = new ClientCertificateCredentialBuilder()
+                    .clientId(this.clientId)
+                    .tenantId(this.tenantId)
+                    .pfxCertificate(this.pfxCertificatePath)
+                    .clientCertificatePassword(this.pfxCertificatePassword)
+                    .build()
+            AzureProfile profile = new AzureProfile(this.tenantId, this.subscriptionId, AzureEnvironment.AZURE)
+            azure = AzureResourceManager.authenticate(credential, profile).withSubscription(this.subscriptionId)
         }
 
     }
@@ -70,7 +80,7 @@ class AzureManager {
             for(String rg : resourceGroups)
                 try{
                     list.addAll(new ArrayList<>(vms.listByResourceGroup(rg)))
-                }catch(CloudException requestError){
+                }catch(ManagementException requestError){
                     errorMsgs.append("\n" + requestError.getLocalizedMessage())
                     if(debug){
                         println("Couldn't load machines for resource group '${rg}': " + requestError.getLocalizedMessage())
@@ -125,7 +135,7 @@ class AzureManager {
         def vms = azure.virtualMachines()
 
         if(async){
-            vms.startAsync(resourceGroups[0],name).await()
+            vms.startAsync(resourceGroups[0],name).block()
         }else{
             vms.start(resourceGroups[0],name)
         }
@@ -138,7 +148,7 @@ class AzureManager {
         def vms = azure.virtualMachines()
 
         if(async) {
-            vms.powerOffAsync(resourceGroups[0], name).await()
+            vms.powerOffAsync(resourceGroups[0], name).block()
 
         }else{
             vms.powerOff(resourceGroups[0], name)
@@ -163,7 +173,7 @@ class AzureManager {
             rgDefinition = create.withExistingResourceGroup(vm.getResourceGroup())
         }
 
-        final String publicIPAddressLeafDNS1 = SdkContext.randomResourceName("pip1", 24)
+        final String publicIPAddressLeafDNS1 = "pip1" + UUID.randomUUID().toString().replace("-", "").substring(0, 20)
 
         def azureVm
 
