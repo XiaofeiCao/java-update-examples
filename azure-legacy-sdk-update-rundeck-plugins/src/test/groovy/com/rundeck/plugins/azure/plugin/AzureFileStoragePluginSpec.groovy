@@ -34,7 +34,7 @@ class AzureFileStoragePluginSpec  extends Specification{
         storage.initialize(testContext())
 
         then:
-        thrown java.security.InvalidKeyException
+        thrown IllegalArgumentException
     }
 
     def "storage wrong path"(){

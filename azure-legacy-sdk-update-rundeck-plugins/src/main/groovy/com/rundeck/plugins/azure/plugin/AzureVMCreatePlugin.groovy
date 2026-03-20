@@ -173,7 +173,7 @@ class AzureVMCreatePlugin  implements StepPlugin, Describable {
         }
 
         String key = AzurePluginUtil.getPasswordFromKeyStorage(keyPath,context);
-        Region region = Region.findByLabelOrName(regionNameLabel)
+        Region region = Region.fromName(regionNameLabel)
 
         if(region==null){
             throw new IllegalArgumentException("Region not found");
