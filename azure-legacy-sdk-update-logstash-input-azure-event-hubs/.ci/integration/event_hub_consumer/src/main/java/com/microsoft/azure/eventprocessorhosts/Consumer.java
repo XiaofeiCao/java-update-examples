@@ -1,23 +1,24 @@
 package com.microsoft.azure.eventprocessorhosts;
-// ^^ need to be in this package to get access to the hostcontext needed for the in-memory checkpointer
 
-import com.microsoft.azure.eventhubs.ConnectionStringBuilder;
-import com.microsoft.azure.eventprocessorhost.EventProcessorHost;
-import com.microsoft.azure.eventprocessorhost.EventProcessorOptions;
-import com.microsoft.azure.eventprocessorhost.InMemoryCheckpointManager;
-import com.microsoft.azure.eventprocessorhost.InMemoryLeaseManager;
+import com.azure.messaging.eventhubs.EventProcessorClient;
+import com.azure.messaging.eventhubs.EventProcessorClientBuilder;
+import com.azure.messaging.eventhubs.models.CloseContext;
+import com.azure.messaging.eventhubs.models.ErrorContext;
+import com.azure.messaging.eventhubs.models.EventContext;
+import com.azure.messaging.eventhubs.models.InitializationContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Method;
-import java.util.Arrays;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Uses EPH, but only the in-memory version... so this only works as a single standalone consumer using the $Default consumer group.
+ * Uses modern EventProcessorClient with in-memory checkpoint store.
  */
 public class Consumer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Consumer.class);
+    private static final AtomicLong totalCount = new AtomicLong();
 
     /**
      * Usage:
@@ -33,71 +34,30 @@ public class Consumer {
                 LOGGER.error("Endpoint=sb://logstash-demo.servicebus.windows.net/;SharedAccessKeyName=activity-log-ro;SharedAccessKey=<redacted>;EntityPath=my_event_hub");
                 System.exit(1);
             }
-            String eventHubName = new ConnectionStringBuilder(args[0]).getEventHubName();
-            LOGGER.debug("Consuming events from Event Hub {} ...", eventHubName);
-            InMemoryCheckpointManager inMemoryCheckpointManager = new InMemoryCheckpointManager();
-            InMemoryLeaseManager inMemoryLeaseManager = new InMemoryLeaseManager();
-            EventProcessorHost host = new EventProcessorHost(
-                    EventProcessorHost.createHostName("logstash"),
-                    eventHubName,
-                    "$Default",
-                    args[0],
-                    inMemoryCheckpointManager,
-                    inMemoryLeaseManager);
 
-            Method getHostContext = EventProcessorHost.class.getDeclaredMethod("getHostContext");
-            getHostContext.setAccessible(true);
+            LOGGER.debug("Consuming events from Event Hub ...");
 
-            Method checkpointManagerInit = Arrays.stream(InMemoryCheckpointManager.class.getDeclaredMethods())
-                    .filter(method -> method.getName().equals("initialize"))
-                    .findAny().get();
-            checkpointManagerInit.setAccessible(true);
-            Method leaseManagerInit = Arrays.stream(InMemoryLeaseManager.class.getDeclaredMethods())
-                    .filter(method -> method.getName().equals("initialize"))
-                    .findAny().get();
-            leaseManagerInit.setAccessible(true);
+            // Create in-memory checkpoint store
+            InMemoryCheckpointStore checkpointStore = new InMemoryCheckpointStore();
 
-            Object hostContext = getHostContext.invoke(host);
+            EventProcessorClient processor = new EventProcessorClientBuilder()
+                    .connectionString(args[0])
+                    .consumerGroup("$Default")
+                    .checkpointStore(checkpointStore)
+                    .processEvent(eventContext -> onEvent(eventContext))
+                    .processError(context -> onError(context))
+                    .processPartitionInitialization(initializationContext -> onOpen(initializationContext))
+                    .processPartitionClose(closeContext -> onClose(closeContext))
+                    .buildEventProcessorClient();
 
-            checkpointManagerInit.invoke(inMemoryCheckpointManager, hostContext);
-            leaseManagerInit.invoke(inMemoryLeaseManager, hostContext);
+            LOGGER.debug("Starting processor...");
+            processor.start();
 
-            LOGGER.debug("Registering host named {}", host.getHostName());
-            EventProcessorOptions options = new EventProcessorOptions();
-            options.setExceptionNotification(new ErrorNotificationHandler());
+            System.out.println("Press enter to stop !");
+            System.in.read();
 
-            host.registerEventProcessor(EventProcessor.class, options)
-                    .whenComplete((unused, e) ->
-                    {
-                        if (e != null) {
-                            LOGGER.error("Failure while registering", e);
-                            if (e.getCause() != null) {
-                                LOGGER.error("Inner exception: {}", e.getCause().toString());
-                            }
-                        }
-                    })
-                    .thenAccept((unused) ->
-                    {
-                        System.out.println("Press enter to stop !");
-                        try {
-                            System.in.read();
-                        } catch (Exception e) {
-                            LOGGER.error("Keyboard read failed", e);
-                        }
-                    })
-                    .thenCompose((unused) ->
-                    {
-                        return host.unregisterEventProcessor();
-                    })
-                    .exceptionally((e) ->
-                    {
-                        LOGGER.error("Failure while unregistering", e);
-                        if (e.getCause() != null) {
-                            LOGGER.error("Inner exception: {} ", e.getCause().toString());
-                        }
-                        return null;
-                    })
-                    .get(); // Wait for everything to finish before exiting main! This takes a while :(
+            LOGGER.debug("Stopping processor...");
+            processor.stop();
 
             LOGGER.info("Done reading. Thanks for playing. ");
         } catch (Throwable t) {
@@ -105,4 +65,27 @@ public class Consumer {
         }
     }
 
+    private static void onEvent(EventContext eventContext) {
+        LOGGER.debug("Partition {} got event", eventContext.getPartitionContext().getPartitionId());
+        try {
+            LOGGER.debug("Received event: {}", new String(eventContext.getEventData().getBody(), StandardCharsets.UTF_8));
+            totalCount.incrementAndGet();
+            LOGGER.info("************* Consumed {} total events (so far) **********", totalCount);
+        } catch (Exception e) {
+            LOGGER.error("Processing failed for an event ", e);
+        }
+    }
+
+    private static void onError(ErrorContext context) {
+        LOGGER.error("Partition {} error", context.getPartitionContext().getPartitionId(), context.getThrowable());
+    }
+
+    private static void onOpen(InitializationContext context) {
+        LOGGER.debug("Partition {} is opening", context.getPartitionContext().getPartitionId());
+    }
+
+    private static void onClose(CloseContext context) {
+        LOGGER.debug("Partition {} is closing for reason {} ", 
+            context.getPartitionContext().getPartitionId(), context.getCloseReason());
+    }
 }
