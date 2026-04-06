@@ -4,16 +4,17 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.microsoft.azure.eventhubs.EventData;
-import com.microsoft.azure.eventhubs.EventHubClient;
+import com.azure.messaging.eventhubs.EventData;
+import com.azure.messaging.eventhubs.EventDataBatch;
+import com.azure.messaging.eventhubs.EventHubClientBuilder;
+import com.azure.messaging.eventhubs.EventHubProducerClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.Iterator;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -58,9 +59,11 @@ public class Producer {
     private static void sendDemoData(String connectionString) throws Exception {
         LOGGER.info("Sending demo data...");
         ObjectMapper mapper = new ObjectMapper();
-        final ExecutorService executorService = Executors.newSingleThreadExecutor();
-        final EventHubClient client = EventHubClient.createSync(connectionString, executorService);
-        try (ZipInputStream in = new ZipInputStream(Producer.class.getClassLoader().getResourceAsStream("demo_activity_log.zip"))) {
+        try (EventHubProducerClient producer = new EventHubClientBuilder()
+                .connectionString(connectionString)
+                .buildProducerClient();
+             ZipInputStream in = new ZipInputStream(Producer.class.getClassLoader().getResourceAsStream("demo_activity_log.zip"))) {
+            
             ZipEntry zipEntry = in.getNextEntry();
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             while (zipEntry != null) {
@@ -87,13 +90,13 @@ public class Producer {
                         if (bytes <= 100000) {
                             recordsToWrite.add(node);
                         } else {
-                            push(parent, client);
+                            push(parent, producer);
                             parent = mapper.createObjectNode();
                             recordsToWrite = parent.putArray("records");
                             bytes = 0;
                         }
                     }
-                    push(parent, client);
+                    push(parent, producer);
                     zipEntry = in.getNextEntry();
                 } else {
                     zipEntry = in.getNextEntry();
@@ -101,13 +104,12 @@ public class Producer {
                 }
             }
         }
-
     }
 
-    private static void push(ObjectNode parent, EventHubClient client) {
+    private static void push(ObjectNode parent, EventHubProducerClient producer) {
         try {
-            EventData sendEvent = EventData.create(parent.toString().getBytes(StandardCharsets.UTF_8));
-            client.sendSync(sendEvent);
+            EventData sendEvent = new EventData(parent.toString().getBytes(StandardCharsets.UTF_8));
+            producer.send(Collections.singletonList(sendEvent));
         } catch (Exception e) {
             LOGGER.error("Error pushing to Azure", e);
         }
@@ -119,23 +121,16 @@ public class Producer {
     private static void sendTestData(String connectionString) throws Exception {
         final int EVENTS_TO_SEND = 1000;
         LOGGER.info("Sending {} events ...", EVENTS_TO_SEND);
-        final ExecutorService executorService = Executors.newSingleThreadExecutor();
-        final EventHubClient client = EventHubClient.createSync(connectionString, executorService);
-        try {
+        try (EventHubProducerClient producer = new EventHubClientBuilder()
+                .connectionString(connectionString)
+                .buildProducerClient()) {
+            
             for (int i = 0; i < EVENTS_TO_SEND; i++) {
-                EventData sendEvent = EventData.create(Integer.toString(i).getBytes(StandardCharsets.UTF_8));
-                client.sendSync(sendEvent);
+                EventData sendEvent = new EventData(Integer.toString(i).getBytes(StandardCharsets.UTF_8));
+                producer.send(Collections.singletonList(sendEvent));
             }
 
-            LOGGER.info("Successfully sent {} events to {}", EVENTS_TO_SEND, client.getEventHubName());
-
-        } finally {
-            try {
-                client.closeSync();
-                executorService.shutdown();
-            } catch (Exception e) {
-                LOGGER.error("Exception while closing.", e);
-            }
+            LOGGER.info("Successfully sent {} events to Event Hub", EVENTS_TO_SEND);
         }
     }
 
