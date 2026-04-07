@@ -67,14 +67,9 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>com.microsoft.azure</groupId>
-                <artifactId>azure-eventhubs</artifactId>
-                <version>1.0.1</version>
-            </dependency>
-            <dependency>
-                <groupId>com.microsoft.azure</groupId>
-                <artifactId>azure-eventhubs-eph</artifactId>
-                <version>1.0.0</version>
+                <groupId>com.azure</groupId>
+                <artifactId>azure-messaging-eventhubs</artifactId>
+                <version>5.18.7</version>
             </dependency>
             <dependency>
                 <groupId>org.slf4j</groupId>
@@ -100,12 +95,8 @@
     </dependencyManagement>
     <dependencies>
         <dependency>
-            <groupId>com.microsoft.azure</groupId>
-            <artifactId>azure-eventhubs</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.microsoft.azure</groupId>
-            <artifactId>azure-eventhubs-eph</artifactId>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-messaging-eventhubs</artifactId>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
