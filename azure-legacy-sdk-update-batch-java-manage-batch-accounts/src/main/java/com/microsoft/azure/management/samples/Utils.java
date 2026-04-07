@@ -6,11 +6,11 @@
 
 package com.microsoft.azure.management.samples;
 
-import com.microsoft.azure.management.batch.Application;
-import com.microsoft.azure.management.batch.ApplicationPackage;
-import com.microsoft.azure.management.batch.BatchAccount;
-import com.microsoft.azure.management.batch.BatchAccountKeys;
-import com.microsoft.azure.management.storage.StorageAccountKey;
+import com.azure.resourcemanager.batch.models.Application;
+import com.azure.resourcemanager.batch.models.ApplicationPackage;
+import com.azure.resourcemanager.batch.models.BatchAccount;
+import com.azure.resourcemanager.batch.models.BatchAccountKeys;
+import com.azure.resourcemanager.storage.models.StorageAccountKey;
 
 import java.util.List;
 import java.util.Map;
