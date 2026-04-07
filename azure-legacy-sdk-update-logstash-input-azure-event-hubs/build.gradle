@@ -17,6 +17,9 @@ repositories {
 }
 
 dependencies {
+    // Azure SDK BOM for dependency management
+    implementation platform('com.azure:azure-sdk-bom:1.3.5')
+    
     testImplementation 'junit:junit:4.13.1'
 
     implementation 'com.microsoft.azure:azure-eventhubs:3.3.0'
