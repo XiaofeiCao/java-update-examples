@@ -1,18 +1,18 @@
 package com.microsoft.azure.eventprocessorhosts;
 
-import com.microsoft.azure.eventprocessorhost.ExceptionReceivedEventArgs;
+import com.azure.messaging.eventhubs.models.ErrorContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.function.Consumer;
-
-public class ErrorNotificationHandler implements Consumer<ExceptionReceivedEventArgs> {
+public class ErrorNotificationHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ErrorNotificationHandler.class);
 
-    @Override
-    public void accept(ExceptionReceivedEventArgs exceptionReceivedEventArgs) {
-        LOGGER.error("Host {} received general error notification during {}", exceptionReceivedEventArgs.getHostname(), exceptionReceivedEventArgs.getAction(),
-                exceptionReceivedEventArgs.getException());
+    public void onError(ErrorContext errorContext) {
+        LOGGER.error("Partition {} received error during {}: {}", 
+                errorContext.getPartitionContext().getPartitionId(),
+                "processing",
+                errorContext.getThrowable() != null ? errorContext.getThrowable().getMessage() : "Unknown error",
+                errorContext.getThrowable());
     }
 }

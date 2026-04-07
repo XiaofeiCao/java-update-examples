@@ -1,19 +1,14 @@
 package com.microsoft.azure.eventprocessorhosts;
-// ^^ need to be in this package to get access to the hostcontext needed for the in-memory checkpointer
 
-import com.microsoft.azure.eventhubs.ConnectionStringBuilder;
-import com.microsoft.azure.eventprocessorhost.EventProcessorHost;
-import com.microsoft.azure.eventprocessorhost.EventProcessorOptions;
-import com.microsoft.azure.eventprocessorhost.InMemoryCheckpointManager;
-import com.microsoft.azure.eventprocessorhost.InMemoryLeaseManager;
+import com.azure.messaging.eventhubs.EventProcessorClient;
+import com.azure.messaging.eventhubs.EventProcessorClientBuilder;
+import com.azure.messaging.eventhubs.checkpointstore.inmemory.InMemoryCheckpointStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Method;
-import java.util.Arrays;
-
 /**
- * Uses EPH, but only the in-memory version... so this only works as a single standalone consumer using the $Default consumer group.
+ * Uses EventProcessorClient with in-memory checkpoint store.
+ * This only works as a single standalone consumer using the $Default consumer group.
  */
 public class Consumer {
 
@@ -33,71 +28,30 @@ public class Consumer {
                 LOGGER.error("Endpoint=sb://logstash-demo.servicebus.windows.net/;SharedAccessKeyName=activity-log-ro;SharedAccessKey=<redacted>;EntityPath=my_event_hub");
                 System.exit(1);
             }
-            String eventHubName = new ConnectionStringBuilder(args[0]).getEventHubName();
-            LOGGER.debug("Consuming events from Event Hub {} ...", eventHubName);
-            InMemoryCheckpointManager inMemoryCheckpointManager = new InMemoryCheckpointManager();
-            InMemoryLeaseManager inMemoryLeaseManager = new InMemoryLeaseManager();
-            EventProcessorHost host = new EventProcessorHost(
-                    EventProcessorHost.createHostName("logstash"),
-                    eventHubName,
-                    "$Default",
-                    args[0],
-                    inMemoryCheckpointManager,
-                    inMemoryLeaseManager);
+            
+            LOGGER.debug("Consuming events from Event Hub...");
+            InMemoryCheckpointStore checkpointStore = new InMemoryCheckpointStore();
+            EventProcessor eventProcessor = new EventProcessor();
+            ErrorNotificationHandler errorHandler = new ErrorNotificationHandler();
 
-            Method getHostContext = EventProcessorHost.class.getDeclaredMethod("getHostContext");
-            getHostContext.setAccessible(true);
+            EventProcessorClient processor = new EventProcessorClientBuilder()
+                    .connectionString(args[0])
+                    .consumerGroup("$Default")
+                    .checkpointStore(checkpointStore)
+                    .processEvent(eventContext -> eventProcessor.onEvent(eventContext))
+                    .processError(context -> errorHandler.onError(context))
+                    .processPartitionInitialization(initializationContext -> eventProcessor.onOpen(initializationContext))
+                    .processPartitionClose(closeContext -> eventProcessor.onClose(closeContext))
+                    .buildEventProcessorClient();
 
-            Method checkpointManagerInit = Arrays.stream(InMemoryCheckpointManager.class.getDeclaredMethods())
-                    .filter(method -> method.getName().equals("initialize"))
-                    .findAny().get();
-            checkpointManagerInit.setAccessible(true);
-            Method leaseManagerInit = Arrays.stream(InMemoryLeaseManager.class.getDeclaredMethods())
-                    .filter(method -> method.getName().equals("initialize"))
-                    .findAny().get();
-            leaseManagerInit.setAccessible(true);
+            LOGGER.debug("Starting event processor...");
+            processor.start();
 
-            Object hostContext = getHostContext.invoke(host);
+            System.out.println("Press enter to stop !");
+            System.in.read();
 
-            checkpointManagerInit.invoke(inMemoryCheckpointManager, hostContext);
-            leaseManagerInit.invoke(inMemoryLeaseManager, hostContext);
-
-            LOGGER.debug("Registering host named {}", host.getHostName());
-            EventProcessorOptions options = new EventProcessorOptions();
-            options.setExceptionNotification(new ErrorNotificationHandler());
-
-            host.registerEventProcessor(EventProcessor.class, options)
-                    .whenComplete((unused, e) ->
-                    {
-                        if (e != null) {
-                            LOGGER.error("Failure while registering", e);
-                            if (e.getCause() != null) {
-                                LOGGER.error("Inner exception: {}", e.getCause().toString());
-                            }
-                        }
-                    })
-                    .thenAccept((unused) ->
-                    {
-                        System.out.println("Press enter to stop !");
-                        try {
-                            System.in.read();
-                        } catch (Exception e) {
-                            LOGGER.error("Keyboard read failed", e);
-                        }
-                    })
-                    .thenCompose((unused) ->
-                    {
-                        return host.unregisterEventProcessor();
-                    })
-                    .exceptionally((e) ->
-                    {
-                        LOGGER.error("Failure while unregistering", e);
-                        if (e.getCause() != null) {
-                            LOGGER.error("Inner exception: {} ", e.getCause().toString());
-                        }
-                        return null;
-                    })
-                    .get(); // Wait for everything to finish before exiting main! This takes a while :(
+            LOGGER.debug("Stopping event processor...");
+            processor.stop();
 
             LOGGER.info("Done reading. Thanks for playing. ");
         } catch (Throwable t) {
