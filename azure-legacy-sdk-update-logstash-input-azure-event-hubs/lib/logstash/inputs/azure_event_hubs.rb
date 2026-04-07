@@ -10,12 +10,9 @@ require "logstash/inputs/look_back_position_provider"
 
 class LogStash::Inputs::AzureEventHubs < LogStash::Inputs::Base
 
-  java_import com.microsoft.azure.eventprocessorhost.EventProcessorHost
-  java_import com.microsoft.azure.eventprocessorhost.EventProcessorOptions
-  java_import com.microsoft.azure.eventprocessorhost.InMemoryCheckpointManager
-  java_import com.microsoft.azure.eventprocessorhost.InMemoryLeaseManager
-  java_import com.microsoft.azure.eventprocessorhost.HostContext
-  java_import com.microsoft.azure.eventhubs.ConnectionStringBuilder
+  java_import com.azure.messaging.eventhubs.EventProcessorClient
+  java_import com.azure.messaging.eventhubs.EventProcessorClientBuilder
+  java_import com.azure.messaging.eventhubs.checkpointstore.inmemory.InMemoryCheckpointStore
   java_import java.util.concurrent.Executors
   java_import java.util.concurrent.TimeUnit
   java_import java.time.Duration
