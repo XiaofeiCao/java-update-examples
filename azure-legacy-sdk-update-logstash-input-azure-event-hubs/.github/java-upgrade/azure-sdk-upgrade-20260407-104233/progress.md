@@ -66,12 +66,30 @@
     - Result: ✅ File created successfully
     - Notes: Compilation will be verified after dependencies are updated in Step 6
   - **Deferred Work**: None
-  - **Commit**: (pending)
+  - **Commit**: 3cf5e2d - Step 3: Create Custom InMemoryCheckpointStore - Compile: DEFERRED
 
 ---
 
 - **Step 4: Update Gradle Dependencies**
-  - **Status**: 🔘 Not Started
+  - **Status**: ✅ Completed
+  - **Changes Made**:
+    - Replaced com.microsoft.azure:azure-eventhubs with com.azure:azure-messaging-eventhubs
+    - Replaced com.microsoft.azure:azure-storage with com.azure:azure-storage-blob
+    - Removed direct dependencies on qpid-proton-j-extensions and azure-eventhubs-eph (included in modern SDK)
+    - Removed adal4j exclusion (no longer needed)
+  - **Review Code Changes**:
+    - Sufficiency: ✅ All required changes present
+    - Necessity: ✅ All changes necessary
+      - Functional Behavior: ✅ Preserved - dependencies updated, no functional changes yet
+      - Security Controls: ✅ Preserved - using latest stable SDKs with security patches
+  - **Verification**:
+    - Command: `./gradlew dependencies --configuration runtimeClasspath` and `./gradlew clean build`
+    - JDK: /Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home
+    - Build tool: Gradle Wrapper 8.7
+    - Result: ✅ Compilation SUCCESS, modern SDKs present (azure-messaging-eventhubs 5.21.3, azure-storage-blob 12.33.1)
+    - Notes: Transitive qpid-proton-j-extensions 1.2.6 from azure-core-amqp is expected and correct
+  - **Deferred Work**: None
+  - **Commit**: (pending)
 
 ---
 

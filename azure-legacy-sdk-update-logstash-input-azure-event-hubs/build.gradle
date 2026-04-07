@@ -22,10 +22,10 @@ dependencies {
     
     testImplementation 'junit:junit:4.13.1'
 
-    implementation 'com.microsoft.azure:azure-eventhubs:3.3.0'
-    implementation 'com.microsoft.azure:qpid-proton-j-extensions:1.2.4'
-    implementation 'com.microsoft.azure:azure-eventhubs-eph:3.3.0'
-    implementation 'com.microsoft.azure:azure-storage:8.6.6'
+    // Modern Azure SDK dependencies (versions managed by BOM)
+    implementation 'com.azure:azure-messaging-eventhubs'
+    implementation 'com.azure:azure-storage-blob'
+    
     constraints {
         implementation 'com.fasterxml.jackson.core:jackson-core:2.16.2'
         implementation 'com.fasterxml.jackson.core:jackson-databind:2.16.2'
@@ -42,11 +42,6 @@ dependencies {
     }
     compileOnly 'org.apache.logging.log4j:log4j-api:2.17.0' // provided by Logstash
     testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.17.0' // provided by Logstash
-}
-
-// Exclude adal4j and its transitive dependencies from runtimeClasspath
-configurations.runtimeClasspath {
-    exclude group: 'com.microsoft.azure', module: 'adal4j'
 }
 
 task generateGemJarRequiresFile {
