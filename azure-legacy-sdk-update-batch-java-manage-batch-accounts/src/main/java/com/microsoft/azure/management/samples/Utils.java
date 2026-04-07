@@ -6,6 +6,7 @@
 
 package com.microsoft.azure.management.samples;
 
+import com.azure.resourcemanager.batch.BatchManager;
 import com.azure.resourcemanager.batch.models.Application;
 import com.azure.resourcemanager.batch.models.ApplicationPackage;
 import com.azure.resourcemanager.batch.models.BatchAccount;
@@ -36,18 +37,26 @@ public final class Utils {
     /**
      * Prints batch account.
      *
-     * @param batchAccount a Batch Account
+     * @param batchManager BatchManager to query applications
      */
-    public static void print(BatchAccount batchAccount) {
+    public static void print(BatchAccount batchAccount, BatchManager batchManager) {
         StringBuilder applicationsOutput = new StringBuilder().append("\n\tapplications: ");
 
-        if (batchAccount.applications().size() > 0) {
-            for (Map.Entry<String, Application> applicationEntry : batchAccount.applications().entrySet()) {
-                Application application = applicationEntry.getValue();
+        // Fetch applications using BatchManager
+        List<Application> applications = batchManager.applications()
+                .list(batchAccount.resourceGroupName(), batchAccount.name())
+                .stream().toList();
+
+        if (applications.size() > 0) {
+            for (Application application : applications) {
                 StringBuilder applicationPackages = new StringBuilder().append("\n\t\t\tapplicationPackages : ");
 
-                for (Map.Entry<String, ApplicationPackage> applicationPackageEntry : application.applicationPackages().entrySet()) {
-                    ApplicationPackage applicationPackage = applicationPackageEntry.getValue();
+                // Fetch application packages using BatchManager
+                List<ApplicationPackage> packages = batchManager.applicationPackages()
+                        .list(batchAccount.resourceGroupName(), batchAccount.name(), application.name())
+                        .stream().toList();
+
+                for (ApplicationPackage applicationPackage : packages) {
                     StringBuilder singleApplicationPackage = new StringBuilder().append("\n\t\t\t\tapplicationPackage : " + applicationPackage.name());
                     singleApplicationPackage.append("\n\t\t\t\tapplicationPackageState : " + applicationPackage.state());
 
@@ -74,6 +83,24 @@ public final class Utils {
                 .append("\n\tActiveJobAndJobScheduleQuota: ").append(batchAccount.activeJobAndJobScheduleQuota())
                 .append("\n\tStorageAccount: ").append(batchAccount.autoStorage() == null ? "No storage account attached" : batchAccount.autoStorage().storageAccountId())
                 .append(applicationsOutput)
+                .toString());
+    }
+
+    /**
+     * Prints batch account (without applications - for backwards compatibility).
+     *
+     * @param batchAccount a Batch Account
+     */
+    public static void print(BatchAccount batchAccount) {
+        System.out.println(new StringBuilder().append("BatchAccount: ").append(batchAccount.id())
+                .append("Name: ").append(batchAccount.name())
+                .append("\n\tResource group: ").append(batchAccount.resourceGroupName())
+                .append("\n\tRegion: ").append(batchAccount.region())
+                .append("\n\tTags: ").append(batchAccount.tags())
+                .append("\n\tAccountEndpoint: ").append(batchAccount.accountEndpoint())
+                .append("\n\tPoolQuota: ").append(batchAccount.poolQuota())
+                .append("\n\tActiveJobAndJobScheduleQuota: ").append(batchAccount.activeJobAndJobScheduleQuota())
+                .append("\n\tStorageAccount: ").append(batchAccount.autoStorage() == null ? "No storage account attached" : batchAccount.autoStorage().storageAccountId())
                 .toString());
     }
 

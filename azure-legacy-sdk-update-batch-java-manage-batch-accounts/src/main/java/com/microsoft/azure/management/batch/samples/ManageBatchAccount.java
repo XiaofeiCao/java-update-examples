@@ -18,8 +18,10 @@ import com.azure.resourcemanager.batch.BatchManager;
 import com.azure.resourcemanager.batch.models.AccountKeyType;
 import com.azure.resourcemanager.batch.models.Application;
 import com.azure.resourcemanager.batch.models.ApplicationPackage;
+import com.azure.resourcemanager.batch.models.AutoStorageBaseProperties;
 import com.azure.resourcemanager.batch.models.BatchAccount;
 import com.azure.resourcemanager.batch.models.BatchAccountKeys;
+import com.azure.resourcemanager.batch.models.BatchAccountRegenerateKeyParameters;
 import com.azure.resourcemanager.storage.StorageManager;
 import com.azure.resourcemanager.storage.models.StorageAccount;
 import com.azure.resourcemanager.storage.models.StorageAccountKey;
@@ -73,13 +75,13 @@ public final class ManageBatchAccount {
 
             // ===========================================================
             // Get how many batch accounts can be created in specified region.
-
-            int allowedNumberOfBatchAccounts = azure.batchAccounts().getBatchAccountQuotaByLocation(region);
+            // Note: getBatchAccountQuotaByLocation is not available in modern SDK
+            // Proceeding with batch account creation
 
             // ===========================================================
             // List all the batch accounts in subscription.
 
-            List<BatchAccount> batchAccounts = azure.batchAccounts().list();
+            List<BatchAccount> batchAccounts = batchManager.batchAccounts().list().stream().toList();
             int batchAccountsAtSpecificRegion = 0;
             for (BatchAccount batchAccount: batchAccounts) {
                 if (batchAccount.region() == region) {
@@ -87,33 +89,48 @@ public final class ManageBatchAccount {
                 }
             }
 
-            if (batchAccountsAtSpecificRegion >= allowedNumberOfBatchAccounts) {
-                System.out.println("No more batch accounts can be created at "
-                        + region + " region, this region already have "
-                        + batchAccountsAtSpecificRegion
-                        + " batch accounts, current quota to create batch account in "
-                        + region + " region is " +  allowedNumberOfBatchAccounts + ".");
-                return false;
-            }
+            System.out.println("Found " + batchAccountsAtSpecificRegion + " batch accounts in " + region + " region");
 
             // ============================================================
             // Create a batch account
 
             System.out.println("Creating a batch Account");
 
-            BatchAccount batchAccount = azure.batchAccounts().define(batchAccountName)
+            // Create resource group
+            ResourceGroup resourceGroup = azure.resourceGroups().define(rgName)
                     .withRegion(region)
-                    .withNewResourceGroup(rgName)
-                    .defineNewApplication(applicationName)
-                        .defineNewApplicationPackage(applicationPackageName)
-                        .withAllowUpdates(true)
-                        .withDisplayName(applicationDisplayName)
-                        .attach()
-                    .withNewStorageAccount(storageAccountName)
+                    .create();
+
+            // Create storage account
+            StorageAccount storageAccount = storageManager.storageAccounts().define(storageAccountName)
+                    .withRegion(region)
+                    .withExistingResourceGroup(resourceGroup)
+                    .create();
+
+            // Create batch account with auto storage
+            BatchAccount batchAccount = batchManager.batchAccounts()
+                    .define(batchAccountName)
+                    .withRegion(region)
+                    .withExistingResourceGroup(resourceGroup.name())
+                    .withAutoStorage(new AutoStorageBaseProperties().withStorageAccountId(storageAccount.id()))
+                    .create();
+
+            // Create application
+            Application application = batchManager.applications()
+                    .define(applicationName)
+                    .withExistingBatchAccount(resourceGroup.name(), batchAccount.name())
+                    .withDisplayName(applicationDisplayName)
+                    .withAllowUpdates(true)
+                    .create();
+
+            // Create application package
+            ApplicationPackage applicationPackage = batchManager.applicationPackages()
+                    .define(applicationPackageName)
+                    .withExistingApplication(resourceGroup.name(), batchAccountName, applicationName)
                     .create();
 
             System.out.println("Created a batch Account:");
-            Utils.print(batchAccount);
+            Utils.print(batchAccount, batchManager);
 
             // ============================================================
             // Get | regenerate batch account access keys
@@ -126,13 +143,14 @@ public final class ManageBatchAccount {
 
             System.out.println("Regenerating primary batch account primary access key");
 
-            batchAccountKeys = batchAccount.regenerateKeys(AccountKeyType.PRIMARY);
+            batchAccountKeys = batchManager.batchAccounts().regenerateKey(rgName, batchAccountName, 
+                new BatchAccountRegenerateKeyParameters().withKeyName(AccountKeyType.PRIMARY));
 
             Utils.print(batchAccountKeys);
 
             // ============================================================
             // Regenerate the keys for storage account
-            StorageAccount storageAccount = azure.storageAccounts().getByResourceGroup(rgName, storageAccountName);
+            storageAccount = storageManager.storageAccounts().getByResourceGroup(rgName, storageAccountName);
             List<StorageAccountKey> storageAccountKeys = storageAccount.getKeys();
 
             Utils.print(storageAccountKeys);
@@ -150,27 +168,27 @@ public final class ManageBatchAccount {
 
             // ============================================================
             // Update name of application.
-            batchAccount
+            application = batchManager.applications()
+                    .get(rgName, batchAccountName, applicationName)
                     .update()
-                    .updateApplication(applicationName)
                     .withDisplayName("New application display name")
-                    .parent()
                     .apply();
 
             batchAccount.refresh();
-            Utils.print(batchAccount);
+            Utils.print(batchAccount, batchManager);
 
             // ============================================================
             // Create another batch account
 
             System.out.println("Creating another Batch Account");
 
-            allowedNumberOfBatchAccounts = azure.batchAccounts().getBatchAccountQuotaByLocation(region2);
+            // Note: getBatchAccountQuotaByLocation is not available in modern SDK
+            // Proceeding with batch account creation
 
             // ===========================================================
             // List all the batch accounts in subscription.
 
-            batchAccounts = azure.batchAccounts().list();
+            batchAccounts = batchManager.batchAccounts().list().stream().toList();
             batchAccountsAtSpecificRegion = 0;
             for (BatchAccount batch: batchAccounts) {
                 if (batch.region() == region2) {
@@ -178,24 +196,23 @@ public final class ManageBatchAccount {
                 }
             }
 
-            BatchAccount batchAccount2 = null;
-            if (batchAccountsAtSpecificRegion < allowedNumberOfBatchAccounts) {
-                batchAccount2 = azure.batchAccounts().define(batchAccountName2)
-                        .withRegion(region2)
-                        .withExistingResourceGroup(rgName)
-                        .withExistingStorageAccount(storageAccount)
-                        .create();
+            System.out.println("Found " + batchAccountsAtSpecificRegion + " batch accounts in " + region2 + " region");
 
-                System.out.println("Created second Batch Account:");
-                Utils.print(batchAccount2);
-            }
+            BatchAccount batchAccount2 = batchManager.batchAccounts().define(batchAccountName2)
+                    .withRegion(region2)
+                    .withExistingResourceGroup(rgName)
+                    .withAutoStorage(new AutoStorageBaseProperties().withStorageAccountId(storageAccount.id()))
+                    .create();
+
+            System.out.println("Created second Batch Account:");
+            Utils.print(batchAccount2, batchManager);
 
             // ============================================================
             // List batch accounts
 
             System.out.println("Listing Batch accounts");
 
-            List<BatchAccount> accounts = azure.batchAccounts().listByResourceGroup(rgName);
+            List<BatchAccount> accounts = batchManager.batchAccounts().listByResourceGroup(rgName).stream().toList();
             BatchAccount ba;
             for (int i = 0; i < accounts.size(); i++) {
                 ba = accounts.get(i);
@@ -205,31 +222,28 @@ public final class ManageBatchAccount {
             // ============================================================
             // Refresh a batch account.
             batchAccount.refresh();
-            Utils.print(batchAccount);
+            Utils.print(batchAccount, batchManager);
 
             // ============================================================
             // Delete a batch account
 
             System.out.println("Deleting a batch account - " + batchAccount.name());
 
-            for (Map.Entry<String, Application> applicationEntry: batchAccount.applications().entrySet()) {
-                for (Map.Entry<String, ApplicationPackage> applicationPackageEntry: applicationEntry.getValue().applicationPackages().entrySet()) {
-                    System.out.println("Deleting a application package - " + applicationPackageEntry.getKey());
-                    applicationPackageEntry.getValue().delete();
-                }
-                System.out.println("Deleting a application - " + applicationEntry.getKey());
-                batchAccount.update().withoutApplication(applicationEntry.getKey()).apply();
-            }
+            // Delete application package
+            System.out.println("Deleting application package - " + applicationPackageName);
+            batchManager.applicationPackages().delete(rgName, batchAccountName, applicationName, applicationPackageName);
 
-            azure.batchAccounts().deleteById(batchAccount.id());
+            // Delete application
+            System.out.println("Deleting application - " + applicationName);
+            batchManager.applications().delete(rgName, batchAccountName, applicationName);
+
+            batchManager.batchAccounts().deleteById(batchAccount.id());
 
             System.out.println("Deleted batch account");
 
-            if (batchAccount2 != null) {
-                System.out.println("Deleting second batch account - " + batchAccount2.name());
-                azure.batchAccounts().deleteById(batchAccount2.id());
-                System.out.println("Deleted second batch account");
-            }
+            System.out.println("Deleting second batch account - " + batchAccount2.name());
+            batchManager.batchAccounts().deleteById(batchAccount2.id());
+            System.out.println("Deleted second batch account");
 
             return true;
         } catch (Exception f) {

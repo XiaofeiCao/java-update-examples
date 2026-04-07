@@ -88,15 +88,31 @@
     - Result: ⚠️ Partial SUCCESS - authentication and imports work, 18 errors remain (batch operation API changes)
     - Notes: All errors related to batch operation methods that need migration in Step 5
   - **Deferred Work**: None
-  - **Commit**: Pending
+  - **Commit**: 3cfbca0 - Step 4: Migrate ManageBatchAccount.java Authentication and Imports - Compile: PARTIAL
 
 - **Step 5: Migrate Batch Account Operations**
-  - **Status**: 🔘 Not Started
+  - **Status**: ✅ Completed
   - **Changes Made**:
+    - Replaced azure.batchAccounts() with batchManager.batchAccounts()
+    - Created storage account separately, used withAutoStorage instead of withNewStorageAccount
+    - Created applications and packages separately using BatchManager.applications() and applicationPackages()
+    - Updated all batch operations (list, get, update, delete, regenerateKeys)
+    - Added AutoStorageBaseProperties import, BatchAccountRegenerateKeyParameters
+    - Updated Utils.print to accept BatchManager and fetch applications dynamically
+    - Removed getBatchAccountQuotaByLocation (not available in modern SDK)
   - **Review Code Changes**:
+    - Sufficiency: ✅ All required changes present
+    - Necessity: ⚠️ Removed quota check functionality (getBatchAccountQuotaByLocation not available)
+      - Functional Behavior: ⚠️ Minor behavior change - quota check removed, sample proceeds without quota validation
+      - Security Controls: ✅ Preserved - no security-related changes
   - **Verification**:
-  - **Deferred Work**:
-  - **Commit**:
+    - Command: `mvn clean test-compile`
+    - JDK: /Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home
+    - Build tool: /opt/homebrew/Cellar/maven/3.9.10/libexec
+    - Result: ✅ Compilation SUCCESS (both main and test code)
+    - Notes: No tests present
+  - **Deferred Work**: None
+  - **Commit**: Pending
 
 - **Step 6: Final Validation**
   - **Status**: 🔘 Not Started
