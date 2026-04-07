@@ -6,19 +6,30 @@
 
 package com.microsoft.azure.management.batch.samples;
 
-import com.microsoft.azure.management.Azure;
-import com.microsoft.azure.management.batch.AccountKeyType;
-import com.microsoft.azure.management.batch.Application;
-import com.microsoft.azure.management.batch.ApplicationPackage;
-import com.microsoft.azure.management.batch.BatchAccount;
-import com.microsoft.azure.management.batch.BatchAccountKeys;
-import com.microsoft.azure.management.resources.fluentcore.arm.Region;
+import com.azure.core.http.policy.HttpLogDetailLevel;
+import com.azure.core.http.policy.HttpLogOptions;
+import com.azure.core.management.AzureEnvironment;
+import com.azure.core.management.Region;
+import com.azure.core.management.profile.AzureProfile;
+import com.azure.identity.ClientSecretCredential;
+import com.azure.identity.ClientSecretCredentialBuilder;
+import com.azure.resourcemanager.AzureResourceManager;
+import com.azure.resourcemanager.batch.BatchManager;
+import com.azure.resourcemanager.batch.models.AccountKeyType;
+import com.azure.resourcemanager.batch.models.Application;
+import com.azure.resourcemanager.batch.models.ApplicationPackage;
+import com.azure.resourcemanager.batch.models.BatchAccount;
+import com.azure.resourcemanager.batch.models.BatchAccountKeys;
+import com.azure.resourcemanager.storage.StorageManager;
+import com.azure.resourcemanager.storage.models.StorageAccount;
+import com.azure.resourcemanager.storage.models.StorageAccountKey;
+import com.azure.resourcemanager.resources.models.ResourceGroup;
 import com.microsoft.azure.management.samples.Utils;
-import com.microsoft.azure.management.storage.StorageAccount;
-import com.microsoft.azure.management.storage.StorageAccountKey;
-import com.microsoft.rest.LogLevel;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -43,9 +54,11 @@ public final class ManageBatchAccount {
     /**
      * Main function which runs the actual sample.
      * @param azure instance of the azure client
+     * @param batchManager instance of the batch manager
+     * @param storageManager instance of the storage manager
      * @return true if sample runs successfully
      */
-    public static boolean runSample(Azure azure) {
+    public static boolean runSample(AzureResourceManager azure, BatchManager batchManager, StorageManager storageManager) {
         final String batchAccountName = "samplebatchaccount";
         final String storageAccountName = "samplestorageacct";
         final String applicationName = "application";
@@ -245,15 +258,43 @@ public final class ManageBatchAccount {
 
             final File credFile = new File(System.getenv("AZURE_AUTH_LOCATION"));
 
-            Azure azure = Azure.configure()
-                    .withLogLevel(LogLevel.BASIC)
-                    .authenticate(credFile)
-                    .withDefaultSubscription();
+            // Parse credential file using Jackson
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode credentialFileNode = mapper.readTree(credFile);
+            String clientId = credentialFileNode.get("clientId").asText();
+            String clientSecret = credentialFileNode.get("clientSecret").asText();
+            String tenantId = credentialFileNode.get("tenantId").asText();
+            String subscriptionId = credentialFileNode.get("subscriptionId").asText();
+
+            // Create Azure profile and credential
+            AzureProfile profile = new AzureProfile(tenantId, subscriptionId, AzureEnvironment.AZURE);
+            ClientSecretCredential credential = new ClientSecretCredentialBuilder()
+                .clientId(clientId)
+                .clientSecret(clientSecret)
+                .tenantId(tenantId)
+                .build();
+
+            // Initialize managers
+            AzureResourceManager azure = AzureResourceManager.configure()
+                .withLogOptions(new HttpLogOptions().setLogLevel(HttpLogDetailLevel.BASIC))
+                .authenticate(credential, profile)
+                .withSubscription(subscriptionId);
+
+            BatchManager batchManager = BatchManager.configure()
+                .withLogOptions(new HttpLogOptions().setLogLevel(HttpLogDetailLevel.BASIC))
+                .authenticate(credential, profile);
+
+            StorageManager storageManager = StorageManager.configure()
+                .withLogOptions(new HttpLogOptions().setLogLevel(HttpLogDetailLevel.BASIC))
+                .authenticate(credential, profile);
 
             // Print selected subscription
             System.out.println("Selected subscription: " + azure.subscriptionId());
 
-            runSample(azure);
+            runSample(azure, batchManager, storageManager);
+        } catch (IOException e) {
+            System.out.println("Failed to read credential file: " + e.getMessage());
+            e.printStackTrace();
         } catch (Exception e) {
             System.out.println(e.getMessage());
             e.printStackTrace();

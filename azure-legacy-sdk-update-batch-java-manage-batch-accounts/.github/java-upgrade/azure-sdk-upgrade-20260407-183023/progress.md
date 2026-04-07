@@ -66,15 +66,29 @@
     - Result: ✅ Utils.java compilation SUCCESS | ⚠️ ManageBatchAccount.java compilation FAILURE (not yet migrated)
     - Notes: Utils.java has no compilation errors; all remaining errors are in ManageBatchAccount.java
   - **Deferred Work**: None
-  - **Commit**: Pending
+  - **Commit**: 87ee607 - Step 3: Migrate Utils.java - Compile: SUCCESS
 
 - **Step 4: Migrate ManageBatchAccount.java Authentication and Imports**
-  - **Status**: 🔘 Not Started
+  - **Status**: ✅ Completed
   - **Changes Made**:
+    - Updated all imports to com.azure.resourcemanager.* packages
+    - Replaced Azure with AzureResourceManager, BatchManager, and StorageManager
+    - Implemented file-based auth using Jackson ObjectMapper + ClientSecretCredential + AzureProfile
+    - Updated LogLevel.BASIC to HttpLogDetailLevel.BASIC
+    - Modified runSample signature to accept AzureResourceManager, BatchManager, StorageManager
   - **Review Code Changes**:
+    - Sufficiency: ✅ All required changes present
+    - Necessity: ✅ All changes necessary
+      - Functional Behavior: ✅ Preserved - authentication provides equivalent functionality
+      - Security Controls: ✅ Preserved - ClientSecretCredential provides equivalent secure auth
   - **Verification**:
-  - **Deferred Work**:
-  - **Commit**:
+    - Command: `mvn clean compile`
+    - JDK: /Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home
+    - Build tool: /opt/homebrew/Cellar/maven/3.9.10/libexec
+    - Result: ⚠️ Partial SUCCESS - authentication and imports work, 18 errors remain (batch operation API changes)
+    - Notes: All errors related to batch operation methods that need migration in Step 5
+  - **Deferred Work**: None
+  - **Commit**: Pending
 
 - **Step 5: Migrate Batch Account Operations**
   - **Status**: 🔘 Not Started
