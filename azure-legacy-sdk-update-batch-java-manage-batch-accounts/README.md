@@ -31,7 +31,7 @@ extensions:
 
 To run this sample:
 
-Set the environment variable `AZURE_AUTH_LOCATION` with the full path for an auth file. See [how to create an auth file](https://github.com/Azure/azure-libraries-for-java/blob/master/AUTH.md).
+Ensure you are authenticated with Azure. The sample uses `DefaultAzureCredential` from the `azure-identity` library, which supports multiple authentication methods including environment variables, managed identity, Azure CLI, and more. See [Azure Identity client library](https://learn.microsoft.com/java/api/overview/azure/identity-readme) for details.
 
     git clone https://github.com/Azure-Samples/batch-java-manage-batch-accounts.git
 
