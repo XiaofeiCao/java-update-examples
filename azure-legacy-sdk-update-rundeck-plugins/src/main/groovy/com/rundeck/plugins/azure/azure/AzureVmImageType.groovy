@@ -2,8 +2,8 @@ package com.rundeck.plugins.azure.azure
 
 import com.dtolabs.rundeck.core.plugins.configuration.PropertyValidator
 import com.dtolabs.rundeck.core.plugins.configuration.ValidationException
-import com.microsoft.azure.management.compute.KnownLinuxVirtualMachineImage
-import com.microsoft.azure.management.compute.KnownWindowsVirtualMachineImage
+import com.azure.resourcemanager.compute.models.KnownLinuxVirtualMachineImage
+import com.azure.resourcemanager.compute.models.KnownWindowsVirtualMachineImage
 
 /**
  * Created by luistoledo on 11/16/17.

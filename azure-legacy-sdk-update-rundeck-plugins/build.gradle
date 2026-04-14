@@ -71,26 +71,21 @@ dependencies {
     implementation libs.commonsIo
     pluginLibs libs.commonsNet
 
-    pluginLibs(libs.azure) {
+    pluginLibs enforcedPlatform(libs.azureSdkBom)
+    pluginLibs(libs.azureResourceManager) {
         exclude group: "com.fasterxml.jackson.core"
         exclude group: 'com.google.guava', module: 'guava'
-        exclude group: 'net.minidev', module: 'json-smart'
     }
+    pluginLibs libs.azureIdentity
     pluginLibs libs.jsonSmart
-    pluginLibs(libs.azureStorage) {
+    pluginLibs(libs.azureStorageBlob) {
         exclude group: "com.fasterxml.jackson.core"
-        exclude group: 'com.google.guava', module: 'guava'
-    }
-    pluginLibs(libs.azureKeyvaultCore) {
         exclude group: 'com.google.guava', module: 'guava'
     }
 
     testImplementation libs.bundles.testLibs
 
     constraints {
-        implementation(libs.retrofitAdapterRxjava) {
-            because "retrofit version by azure affected by CVE-2018-1000844"
-        }
         implementation(libs.nimbusJoseJwt) {
             because "CVE-2023-1370, CVE-2021-31684, CVE-2023-52428"
         }
@@ -102,9 +97,6 @@ dependencies {
         }
         implementation(libs.okhttp) {
             because "CVE-2023-3635"
-        }
-        pluginLibs(libs.retrofitAdapterRxjava) {
-            because "retrofit version by azure affected by CVE-2018-1000844"
         }
         pluginLibs(libs.nimbusJoseJwt) {
             because "CVE-2023-1370, CVE-2021-31684, CVE-2023-52428"

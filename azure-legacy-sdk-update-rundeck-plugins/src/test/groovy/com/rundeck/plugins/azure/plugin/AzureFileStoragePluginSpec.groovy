@@ -1,6 +1,6 @@
 package com.rundeck.plugins.azure.plugin
 
-import com.microsoft.azure.storage.blob.CloudBlockBlob
+import com.azure.storage.blob.BlobClient
 import spock.lang.Specification
 
 /**
@@ -35,7 +35,7 @@ class AzureFileStoragePluginSpec  extends Specification{
         storage.initialize(testContext())
 
         then:
-        thrown java.security.InvalidKeyException
+        thrown IllegalArgumentException
     }
 
     def "storage wrong path"(){
