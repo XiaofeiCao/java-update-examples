@@ -51,6 +51,10 @@ public class AzureInitialization {
         final File credentialFile = new File(System.getenv("AZURE_AUTH_LOCATION"));
         ObjectMapper mapper = new ObjectMapper();
         JsonNode credentialFileNode = mapper.readTree(credentialFile);
+        if (credentialFileNode == null || !credentialFileNode.has("clientId") || !credentialFileNode.has("clientSecret")
+                || !credentialFileNode.has("tenantId") || !credentialFileNode.has("subscriptionId")) {
+            throw new IllegalArgumentException("Credential file is missing required fields: clientId, clientSecret, tenantId, subscriptionId");
+        }
         String fileClientId = credentialFileNode.get("clientId").asText();
         String fileClientSecret = credentialFileNode.get("clientSecret").asText();
         String fileTenantId = credentialFileNode.get("tenantId").asText();
