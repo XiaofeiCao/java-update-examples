@@ -3,19 +3,19 @@
  */
 package com.microsoft.azure.management.clientinitialization;
 
-import com.microsoft.azure.AzureEnvironment;
-import com.microsoft.azure.AzureResponseBuilder;
-import com.microsoft.azure.credentials.ApplicationTokenCredentials;
-import com.microsoft.azure.management.Azure;
+import com.azure.core.http.policy.HttpLogDetailLevel;
+import com.azure.core.http.policy.HttpLogOptions;
+import com.azure.core.management.AzureEnvironment;
+import com.azure.core.management.profile.AzureProfile;
+import com.azure.identity.ClientSecretCredential;
+import com.azure.identity.ClientSecretCredentialBuilder;
+import com.azure.resourcemanager.AzureResourceManager;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microsoft.azure.management.resources.core.ResourceGroupTaggingInterceptor;
-import com.microsoft.azure.management.resources.fluentcore.utils.ProviderRegistrationInterceptor;
-import com.microsoft.azure.serializer.AzureJacksonAdapter;
-import com.microsoft.rest.LogLevel;
-import com.microsoft.rest.RestClient;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
 
 public class AzureInitialization {
     public static void main(String[] args) throws IOException {
@@ -28,27 +28,43 @@ public class AzureInitialization {
             throw new IllegalArgumentException("When running tests in record mode either 'AZURE_AUTH_LOCATION' or 'AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_CLIENT_SECRET and AZURE_SUBSCRIPTION_ID' needs to be set");
         }
 
-        ApplicationTokenCredentials credentials = new ApplicationTokenCredentials(clientId, tenantId, clientSecret, AzureEnvironment.AZURE);
-        credentials.withDefaultSubscriptionId(subscriptionId);
+        // Replaced ApplicationTokenCredentials with ClientSecretCredential
+        ClientSecretCredential credential = new ClientSecretCredentialBuilder()
+            .clientId(clientId)
+            .tenantId(tenantId)
+            .clientSecret(clientSecret)
+            .build();
 
-        String baseUrl = credentials.environment().url(AzureEnvironment.Endpoint.RESOURCE_MANAGER);
-        RestClient.Builder builder = new RestClient.Builder()
-            .withBaseUrl(baseUrl)
-            .withSerializerAdapter(new AzureJacksonAdapter())
-            .withResponseBuilderFactory(new AzureResponseBuilder.Factory())
-            .withInterceptor(new ProviderRegistrationInterceptor(credentials))
-            .withNetworkInterceptor(new ResourceGroupTaggingInterceptor())
-            .withCredentials(credentials)
-            .withLogLevel(LogLevel.BODY_AND_HEADERS)
-            .withReadTimeout(3, TimeUnit.MINUTES);
+        AzureProfile profile = new AzureProfile(tenantId, subscriptionId, AzureEnvironment.AZURE);
 
-        Azure.Authenticated azureAuthed = Azure.authenticate(builder.build(), subscriptionId, credentials.domain());
-        Azure azure = azureAuthed.withSubscription(subscriptionId);
+        // Replaced RestClient.Builder + Azure.authenticate() with AzureResourceManager.configure()
+        // ProviderRegistrationInterceptor omitted: AzureResourceManager is a premium client that handles provider registration internally
+        AzureResourceManager azure = AzureResourceManager
+            .configure()
+            .withLogOptions(new HttpLogOptions().setLogLevel(HttpLogDetailLevel.BODY_AND_HEADERS))
+            .withPolicy(new ResourceGroupTaggingInterceptor())
+            .authenticate(credential, profile)
+            .withSubscription(subscriptionId);
 
         // initialize using credential file
+        // Replaced file-based Azure.configure().authenticate(credentialFile) with ObjectMapper + ClientSecretCredential
         final File credentialFile = new File(System.getenv("AZURE_AUTH_LOCATION"));
-        azure = Azure.configure()
-            .authenticate(credentialFile)
-            .withDefaultSubscription();
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode credentialFileNode = mapper.readTree(credentialFile);
+        String fileClientId = credentialFileNode.get("clientId").asText();
+        String fileClientSecret = credentialFileNode.get("clientSecret").asText();
+        String fileTenantId = credentialFileNode.get("tenantId").asText();
+        String fileSubscriptionId = credentialFileNode.get("subscriptionId").asText();
+
+        AzureProfile fileProfile = new AzureProfile(fileTenantId, fileSubscriptionId, AzureEnvironment.AZURE);
+        ClientSecretCredential fileCredential = new ClientSecretCredentialBuilder()
+            .clientId(fileClientId)
+            .clientSecret(fileClientSecret)
+            .tenantId(fileTenantId)
+            .build();
+
+        azure = AzureResourceManager.configure()
+            .authenticate(fileCredential, fileProfile)
+            .withSubscription(fileSubscriptionId);
     }
 }

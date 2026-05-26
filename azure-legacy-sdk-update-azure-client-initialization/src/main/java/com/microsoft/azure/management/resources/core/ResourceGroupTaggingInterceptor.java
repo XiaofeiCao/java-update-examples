@@ -6,61 +6,59 @@
 
 package com.microsoft.azure.management.resources.core;
 
-import com.microsoft.azure.management.resources.implementation.ResourceGroupInner;
-import com.microsoft.azure.serializer.AzureJacksonAdapter;
-import okhttp3.Interceptor;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
-import okio.Buffer;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
+import com.azure.core.http.HttpPipelineCallContext;
+import com.azure.core.http.HttpPipelineNextPolicy;
+import com.azure.core.http.HttpRequest;
+import com.azure.core.http.HttpResponse;
+import com.azure.core.http.policy.HttpPipelinePolicy;
+import com.azure.core.util.FluxUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import reactor.core.publisher.Mono;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.nio.charset.StandardCharsets;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 
 /**
- * An interceptor for tagging resource groups created in tests.
+ * An HTTP pipeline policy for tagging resource groups created in tests.
+ * Migrated from OkHttp Interceptor to com.azure.core HttpPipelinePolicy.
  */
-public class ResourceGroupTaggingInterceptor implements Interceptor {
-    private static final String LOGGING_CONTEXT = "com.microsoft.azure.management.resources.ResourceGroups createOrUpdate";
-    private AzureJacksonAdapter adapter = new AzureJacksonAdapter();
+public class ResourceGroupTaggingInterceptor implements HttpPipelinePolicy {
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
-    public Response intercept(Chain chain) throws IOException {
-        if ("PUT".equals(chain.request().method()) && chain.request().url().uri().toString().contains("/resourcegroups/") &&
-                LOGGING_CONTEXT.equals(chain.request().header("x-ms-logging-context"))) {
-            String body = bodyToString(chain.request());
-            ResourceGroupInner rg = adapter.deserialize(body, ResourceGroupInner.class);
-            if (rg == null) {
-                throw new RuntimeException("Failed to deserialize " + body);
-            }
-            Map<String, String> tags = rg.getTags();
-            if (tags == null) {
-                tags = new HashMap<>();
-            }
-            tags.put("product", "javasdk");
-            tags.put("cause", "automation");
-            tags.put("date", DateTime.now(DateTimeZone.UTC).toString());
-            if (System.getenv("ENV_JOB_NAME") != null) {
-                tags.put("job", System.getenv("ENV_JOB_NAME"));
-            }
-            rg.withTags(tags);
-
-            String newBody = adapter.serialize(rg);
-            Request newRequest = chain.request().newBuilder()
-                    .put(RequestBody.create(chain.request().body().contentType(), newBody))
-                    .header("Content-Length", String.valueOf(newBody.length())).build();
-            return chain.proceed(newRequest);
+    public Mono<HttpResponse> process(HttpPipelineCallContext context, HttpPipelineNextPolicy next) {
+        HttpRequest request = context.getHttpRequest();
+        if ("PUT".equals(request.getHttpMethod().name())
+                && request.getUrl().toString().contains("/resourcegroups/")) {
+            return FluxUtil.collectBytesInByteBufferStream(request.getBody())
+                .flatMap(bytes -> {
+                    String body = new String(bytes, StandardCharsets.UTF_8);
+                    try {
+                        ObjectNode rg = (ObjectNode) objectMapper.readTree(body);
+                        if (rg == null) {
+                            throw new RuntimeException("Failed to deserialize " + body);
+                        }
+                        ObjectNode tags = (rg.has("tags") && !rg.get("tags").isNull())
+                            ? (ObjectNode) rg.get("tags")
+                            : objectMapper.createObjectNode();
+                        tags.put("product", "javasdk");
+                        tags.put("cause", "automation");
+                        tags.put("date", ZonedDateTime.now(ZoneOffset.UTC).toString());
+                        String jobName = System.getenv("ENV_JOB_NAME");
+                        if (jobName != null) {
+                            tags.put("job", jobName);
+                        }
+                        rg.set("tags", tags);
+                        String newBody = objectMapper.writeValueAsString(rg);
+                        request.setBody(newBody);
+                        return next.process();
+                    } catch (Exception e) {
+                        return Mono.<HttpResponse>error(new RuntimeException("Failed to process request body", e));
+                    }
+                });
         }
-        return chain.proceed(chain.request());
-    }
-
-    private static String bodyToString(final Request request) throws IOException {
-        final Request copy = request.newBuilder().build();
-        final Buffer buffer = new Buffer();
-        copy.body().writeTo(buffer);
-        return buffer.readUtf8();
+        return next.process();
     }
 }
