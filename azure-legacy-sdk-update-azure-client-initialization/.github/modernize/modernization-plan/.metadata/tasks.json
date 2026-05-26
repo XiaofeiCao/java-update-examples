@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Tasks template for modernization plan. Generate this file alongside plan.md to track individual migration tasks.",
+  "metadata": {
+    "planName": "modernization-plan",
+    "projectName": "azure-client-initialization",
+    "language": "java",
+    "createdAt": "2026-05-26T17:31:37.840+08:00",
+    "version": "1.0"
+  },
+  "tasks": [
+    {
+      "type": "upgrade",
+      "id": "001-upgrade-java",
+      "description": "Upgrade the Java runtime from 1.8 to 17 LTS to resolve the end-of-support Java version and ensure compatibility with the modern Azure SDK.",
+      "reason": "Java 1.8 has reached end of support. Upgrading to Java 17 LTS provides long-term security patches, modern language features, and is required for compatibility with the modern com.azure SDK and other up-to-date dependencies.",
+      "requirements": "Upgrade the project Java source and target from 1.8 to 17 in pom.xml (maven-compiler-plugin configuration). Ensure the project compiles and all existing tests pass under Java 17. Addresses issues: 'Java Version Has Reached the End of Support'.",
+      "dependencies": [],
+      "status": "success",
+      "taskSummary": "Upgraded Java compiler source and target from 1.8 to 17 in pom.xml; updated maven-compiler-plugin from 3.8.1 to 3.11.0. Project compiles and tests pass under JDK 17.",
+      "successCriteriaStatus": {
+        "passBuild": "true",
+        "generateNewUnitTests": "false",
+        "passUnitTests": "true"
+      },
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "false",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "transform",
+      "id": "002-transform-legacy-azure-sdk",
+      "description": "Migrate the project from the legacy Azure SDK for Java (com.microsoft.azure.*) to the modern Azure SDK for Java (com.azure.*), replacing deprecated credential management, REST client setup, resource group interceptors, and file-based authentication.",
+      "reason": "The legacy com.microsoft.azure:azure SDK has reached end of support and will not receive security or feature updates. Migration to the modern com.azure track-2 SDK ensures continued support, improved authentication via DefaultAzureCredential, and better cloud-native patterns.",
+      "requirements": "Replace all com.microsoft.azure.* imports and usages with com.azure.* equivalents in all source files. This includes: replacing ApplicationTokenCredentials with DefaultAzureCredential or ClientSecretCredential; replacing RestClient.Builder with HttpClient builder patterns from the modern SDK; updating the ResourceGroupTaggingInterceptor to use modern HTTP pipeline policies; replacing AzureJacksonAdapter with modern serialization; replacing Azure.authenticate() and Azure.configure() with AzureResourceManager from com.azure.resourcemanager; updating pom.xml to remove com.microsoft.azure:azure and add com.azure:azure-resourcemanager and com.azure.identity:azure-identity; resolving file-based credential loading (java.io.File) by using DefaultAzureCredential or environment-variable-based credential chain instead. Addresses issues: 'Legacy Azure SDKs for Java (com.microsoft.azure.*) reached the end of support', 'File system - Java IO', 'Environment variables/system properties'.",
+      "dependencies": ["001-upgrade-java"],
+      "status": "success",
+      "taskSummary": "Migrated all com.microsoft.azure.* usages to com.azure.* equivalents. Replaced ApplicationTokenCredentials with ClientSecretCredential, RestClient.Builder with AzureResourceManager.configure(), ResourceGroupTaggingInterceptor with HttpPipelinePolicy, removed legacy SDK from pom.xml and added azure-resourcemanager and azure-identity. Build and tests pass with zero legacy imports remaining.",
+      "successCriteriaStatus": {
+        "passBuild": "true",
+        "generateNewUnitTests": "false",
+        "passUnitTests": "true"
+      },
+      "skills": [
+        {
+          "name": "legacy-azure-sdk-for-java-upgrade",
+          "location": "project"
+        }
+      ],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "false",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "security",
+      "id": "003-security-cve-remediation",
+      "description": "Scan all project dependencies for known CVEs and remediate any identified vulnerabilities to ensure the application is secure.",
+      "reason": "Dependencies such as commons-net 3.3, commons-lang 2.6, commons-lang3 3.7, and jsch 0.1.55 are outdated and may contain known CVEs. Remediating vulnerabilities ensures the application meets security compliance standards.",
+      "requirements": "Upgrade vulnerable dependencies to the minimum patched version. If a CVE fix requires a major version upgrade, document the affected dependency, the current version, the upgraded major version, and the breaking change risk. Verify that the project builds and all tests pass after remediation.",
+      "dependencies": ["001-upgrade-java", "002-transform-legacy-azure-sdk"],
+      "status": "success",
+      "taskSummary": "Fixed 9 CVEs across 3 dependency upgrades: io.netty BOM 4.1.132→4.1.133 (7 CVEs), commons-net 3.3→3.11.1 (1 CVE), commons-lang3 3.7→3.18.0 (1 CVE). Build and tests pass. jsch 0.1.55 has no Maven Central fix; migration to com.github.mwiede:jsch documented as follow-up.",
+      "successCriteriaStatus": {
+        "passBuild": "true",
+        "generateNewUnitTests": "false",
+        "passUnitTests": "true"
+      },
+      "skills": [
+        {
+          "name": "validate-cves-and-fix",
+          "location": "builtin"
+        }
+      ],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "false",
+        "passUnitTests": "true"
+      }
+    }
+  ]
+}

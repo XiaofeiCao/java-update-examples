@@ -1,0 +1,7 @@
+[
+  {
+    "file": "azure-legacy-sdk-update-azure-client-initialization/pom.xml",
+    "description": "Maven compiler plugin configuration upgrade for Java 17 support. Changes include: (1) Maven compiler plugin version upgraded from 3.8.1 to 3.11.0 for better Java 17 support, (2) Compiler source target upgraded from 1.8 to 17, (3) Compiler target upgraded from 1.8 to 17.",
+    "issues": []
+  }
+]

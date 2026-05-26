@@ -1,0 +1,31 @@
+[
+  {
+    "file": "azure-legacy-sdk-update-azure-client-initialization/pom.xml",
+    "description": "Dependency management migration from legacy Azure SDK (com.microsoft.azure:azure:1.36.3) to modern Azure SDK (com.azure.resourcemanager:azure-resourcemanager:2.62.0 + com.azure:azure-identity). Added azure-sdk-bom:1.3.7 for centralized version management. Changed groupId from com.microsoft.azure to com.azure.",
+    "issues": []
+  },
+  {
+    "file": "azure-legacy-sdk-update-azure-client-initialization/src/main/java/com/microsoft/azure/management/clientinitialization/AzureInitialization.java",
+    "description": "Migration of credential management and Azure client initialization. Replaced ApplicationTokenCredentials with ClientSecretCredential for modern authentication. Replaced RestClient.Builder with AzureResourceManager.configure() for fluent API. Removed ProviderRegistrationInterceptor (handled internally by modern SDK). Migrated file-based authentication from Azure.configure() pattern to ObjectMapper-based JSON parsing. Changed from timeout-based configuration to modern SDK defaults.",
+    "issues": [
+      {
+        "description": "File-based credential parsing (lines 51-68) uses ObjectMapper to read JSON credential file but does not validate the presence of required fields before calling .asText(). If credential file is malformed or missing required fields, NullPointerException could occur at runtime.",
+        "severity": "Minor"
+      }
+    ]
+  },
+  {
+    "file": "azure-legacy-sdk-update-azure-client-initialization/src/main/java/com/microsoft/azure/management/resources/core/ResourceGroupTaggingInterceptor.java",
+    "description": "Migration from OkHttp Interceptor to Azure Core HttpPipelinePolicy. Changed from synchronous chain-based interception to reactive Mono<HttpResponse> pipeline. Replaced AzureJacksonAdapter with ObjectMapper for JSON serialization. Migrated from joda-time (DateTime/DateTimeZone) to java.time (ZonedDateTime/ZoneOffset). Removed x-ms-logging-context header check (not applicable to modern SDK).",
+    "issues": [
+      {
+        "description": "Behavioral change: Original code checked three conditions including x-ms-logging-context header to determine if interceptor should process request. New code only checks HTTP method (PUT) and URL path (/resourcegroups/). This removes the header-based filtering, potentially affecting interceptor application scope. However, this is documented as intentional since modern SDK does not set the same header.",
+        "severity": "Minor"
+      },
+      {
+        "description": "Error handling in line 58 returns Mono.error() which will propagate the exception to the caller. Original code would throw IOException directly. The exception message changed from specific context to generic 'Failed to process request body'. This is acceptable for reactive streams but changes the error handling semantics.",
+        "severity": "Minor"
+      }
+    ]
+  }
+]
