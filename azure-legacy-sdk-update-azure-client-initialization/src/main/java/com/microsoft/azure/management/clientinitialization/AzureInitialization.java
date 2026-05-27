@@ -12,8 +12,6 @@ import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.resourcemanager.AzureResourceManager;
 import com.microsoft.azure.management.resources.core.ResourceGroupTaggingInterceptor;
 
-import java.time.Duration;
-
 public class AzureInitialization {
     public static void main(String[] args) {
         // initialize using env
@@ -36,7 +34,6 @@ public class AzureInitialization {
             .configure()
             .withLogLevel(HttpLogDetailLevel.BODY_AND_HEADERS)
             .withPolicy(new ResourceGroupTaggingInterceptor())
-            .withReadTimeout(Duration.ofMinutes(3))
             .authenticate(credential, profile)
             .withSubscription(subscriptionId);
 
