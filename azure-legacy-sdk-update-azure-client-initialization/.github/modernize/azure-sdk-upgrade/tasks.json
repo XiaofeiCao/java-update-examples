@@ -1,0 +1,29 @@
+{
+  "tasks": [
+    {
+      "id": "001-upgrade-azure-legacy-sdk",
+      "type": "transform",
+      "description": "Upgrade from Legacy Azure SDKs for Java to the latest",
+      "requirements": "Migrate from legacy Azure SDK (com.microsoft.azure:azure:1.36.3) to the latest Azure SDK for Java (com.azure.resourcemanager). Replace deprecated API calls with new SDK equivalents, update authentication patterns, and ensure all Azure resource management code uses the modern SDK.",
+      "environmentConfiguration": null,
+      "kbId": "azure-legacy-java-sdk-upgrade",
+      "skills": [
+        {
+          "name": "migration-azure-legacy-java-sdk-upgrade",
+          "location": "builtin"
+        }
+      ],
+      "successCriteria": {
+        "passBuild": "true",
+        "passUnitTests": "true"
+      }
+    }
+  ],
+  "metadata": {
+    "language": "java",
+    "planName": "azure-sdk-upgrade",
+    "projectName": "azure-client-initialization",
+    "createdAt": "2026-05-27T12:00:00.000Z",
+    "version": "1.0"
+  }
+}
