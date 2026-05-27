@@ -25,15 +25,13 @@ import java.util.Map;
  * An interceptor for tagging resource groups created in tests.
  */
 public class ResourceGroupTaggingInterceptor implements HttpPipelinePolicy {
-    private static final String LOGGING_CONTEXT = "com.microsoft.azure.management.resources.ResourceGroups createOrUpdate";
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public Mono<HttpResponse> process(HttpPipelineCallContext context, HttpPipelineNextPolicy next) {
         HttpRequest request = context.getHttpRequest();
         if ("PUT".equalsIgnoreCase(request.getHttpMethod().toString())
-                && request.getUrl().toString().contains("/resourcegroups/")
-                && LOGGING_CONTEXT.equals(request.getHeaders().getValue("x-ms-logging-context"))) {
+                && request.getUrl().toString().contains("/resourcegroups/")) {
             return FluxUtil.collectBytesInByteBufferStream(request.getBody())
                 .flatMap(bytes -> {
                     try {
