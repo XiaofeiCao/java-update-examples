@@ -13,7 +13,6 @@ import com.azure.resourcemanager.AzureResourceManager;
 import com.microsoft.azure.management.resources.core.ResourceGroupTaggingPolicy;
 
 import java.io.IOException;
-import java.time.Duration;
 
 public class AzureInitialization {
     public static void main(String[] args) throws IOException {
@@ -39,7 +38,6 @@ public class AzureInitialization {
         AzureResourceManager azure = AzureResourceManager.configure()
             .withPolicy(new ResourceGroupTaggingPolicy())
             .withLogOptions(new HttpLogOptions().setLogLevel(HttpLogDetailLevel.BODY_AND_HEADERS))
-            .withReadTimeout(Duration.ofMinutes(3))
             .authenticate(credential, profile)
             .withDefaultSubscription();
     }
