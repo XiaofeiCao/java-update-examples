@@ -1,0 +1,37 @@
+# Build output
+target/
+
+# Version control
+.git/
+.gitignore
+
+# IDE / editor
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.code-workspace
+.settings/
+.project
+.classpath
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Secrets and credentials (never include in Docker build context)
+*.env
+.env
+**/*.pem
+**/*.p12
+**/*.jks
+**/*.pfx
+**/.azure/
+
+# CI/migration artifacts
+.github/
+
+# Documentation (not needed in runtime image)
+*.md
+docs/
