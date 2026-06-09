@@ -26,15 +26,15 @@ import java.time.ZoneOffset;
  * HttpPipelinePolicy (azure-core).
  */
 public class ResourceGroupTaggingPolicy implements HttpPipelinePolicy {
-    private static final String LOGGING_CONTEXT = "com.microsoft.azure.management.resources.ResourceGroups createOrUpdate";
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Override
     public Mono<HttpResponse> process(HttpPipelineCallContext context, HttpPipelineNextPolicy next) {
         HttpRequest request = context.getHttpRequest();
+        // The legacy SDK set "x-ms-logging-context" automatically; the modern SDK does not.
+        // Use the PUT + /resourcegroups/ URL check alone to identify resource group create/update operations.
         if ("PUT".equals(request.getHttpMethod().toString())
-                && request.getUrl().toString().contains("/resourcegroups/")
-                && LOGGING_CONTEXT.equals(request.getHeaders().getValue("x-ms-logging-context"))) {
+                && request.getUrl().toString().contains("/resourcegroups/")) {
             try {
                 BinaryData body = request.getBodyAsBinaryData();
                 String bodyStr = body != null ? body.toString() : null;
