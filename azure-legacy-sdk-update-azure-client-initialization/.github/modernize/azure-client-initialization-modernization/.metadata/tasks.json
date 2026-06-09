@@ -1,0 +1,110 @@
+{
+  "$schema": "../../../../../../azure-java-migration-copilot-vscode-extension/skills/create-modernization-plan/tasks-schema.json",
+  "description": "Tasks template for modernization plan. Generate this file alongside plan.md to track individual migration tasks.",
+  "tasks": [
+    {
+      "type": "upgrade",
+      "id": "001-upgrade-java-version",
+      "description": "Upgrade the application from the end-of-support JDK 1.8 to a supported long-term Java version.",
+      "reason": "JDK 1.8 has reached the end of support, posing security and maintainability risks. A supported long-term Java version is required before other transforms.",
+      "requirements": "Upgrade the project runtime and build configuration from Java 1.8 to a supported long-term Java version (target the latest supported LTS reported by the assessment). Update the Maven compiler configuration accordingly. Addresses issues: Java Version Upgrade (rule azure-java-version-01000). The project must build successfully and all existing tests must pass after the upgrade.",
+      "kbId": "java-version-upgrade",
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "false",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "upgrade",
+      "id": "002-upgrade-jakarta-ee",
+      "description": "Move the application to an up-to-date Jakarta EE baseline.",
+      "reason": "The current Jakarta EE version is not the latest stable, which limits compatibility with modern runtimes and Azure services.",
+      "requirements": "Upgrade the application to an up-to-date Jakarta EE baseline, migrating any javax.* usage to jakarta.* as required. Addresses issues: Framework Upgrade (rule jakarta-ee-version-01000). The project must build successfully and all existing tests must pass after the upgrade.",
+      "kbId": "jakarta-ee-upgrade",
+      "dependencies": ["001-upgrade-java-version"],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "false",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "transform",
+      "id": "003-transform-azure-legacy-sdk-upgrade",
+      "description": "Replace retired legacy Azure SDKs for Java with the current, supported Azure SDKs.",
+      "reason": "The legacy com.microsoft.azure.* SDKs have reached end of support; the current com.azure.* SDKs are required for security, supportability, and managed-identity authentication.",
+      "requirements": "Migrate from the legacy Azure SDKs for Java (com.microsoft.azure.*) to the latest supported Azure SDKs (com.azure.*). Update dependencies, client initialization, and related code paths. Prefer Managed Identity for authentication unless otherwise specified. Addresses issues: Azure SDKs Version Upgrade (rule azure-java-sdk-legacy-migration-01000, 19 incidents in AzureInitialization.java, ResourceGroupTaggingInterceptor.java, and pom.xml). The project must build successfully and all existing tests must pass after migration.",
+      "kbId": "azure-legacy-java-sdk-upgrade",
+      "dependencies": ["002-upgrade-jakarta-ee"],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "false",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "transform",
+      "id": "004-transform-configuration-environment-variables",
+      "description": "Configure system environment variables so configuration is portable to Azure compute.",
+      "reason": "Configuration is currently read from system environment variables/system properties in a way that is not portable to Azure-hosted compute.",
+      "requirements": "Externalize and standardize configuration currently read from system environment variables and system properties so it is portable to Azure compute environments. Addresses issues: Configuration Management (rule azure-system-config-01000, 7 incidents in AzureInitialization.java and ResourceGroupTaggingInterceptor.java). The project must build successfully and all existing tests must pass after the change.",
+      "dependencies": ["003-transform-azure-legacy-sdk-upgrade"],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "false",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "transform",
+      "id": "005-transform-local-files-to-azure-storage",
+      "description": "Migrate direct local file system access to Azure Storage Account File Share mounts.",
+      "reason": "Direct local file system access is not durable or portable on Azure compute; mounted Azure Storage File Shares provide cloud-ready, shared, persistent storage.",
+      "requirements": "Replace direct local file system access (Java IO) with Azure Storage Account File Share mounts, using a configurable mount path. Prefer Managed Identity for authentication unless otherwise specified. Addresses issues: File System Management (local Java IO usage). The project must build successfully and all existing tests must pass after migration.",
+      "kbId": "local-files-to-mounted-azure-storage",
+      "dependencies": ["004-transform-configuration-environment-variables"],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "false",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "security",
+      "id": "006-security-cve-remediation",
+      "description": "Scan all project dependencies for known CVEs and remediate identified vulnerabilities before deployment.",
+      "reason": "The modernized application must be free of known dependency vulnerabilities before it is packaged and deployed.",
+      "requirements": "Scan all project dependencies for known CVEs and remediate identified vulnerabilities. Upgrade vulnerable dependencies to the minimum patched version. If a CVE fix requires a major version upgrade, document the affected dependency, the current version, the upgraded major version, and the breaking change risk. Verify that the project builds and all tests pass after remediation.",
+      "skills": [
+        {
+          "name": "validate-cves-and-fix",
+          "location": "builtin"
+        }
+      ],
+      "dependencies": ["005-transform-local-files-to-azure-storage"],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "false",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "containerization",
+      "id": "007-containerization",
+      "description": "Create a Dockerfile so the application can run inside containers on Azure Container Apps or AKS.",
+      "reason": "No Dockerfile exists; container packaging is required for the application to run on Azure Container Apps or AKS.",
+      "requirements": "Create a Dockerfile and required container build configuration so the application can run inside containers, targeting Azure Container Apps / AKS container readiness. Addresses issues: Containerization (No Dockerfile found). The container image must build successfully.",
+      "kbId": "containerization-copilot-agent",
+      "dockerfilePath": "Dockerfile (to be created)",
+      "dependencies": ["006-security-cve-remediation"]
+    }
+  ],
+  "metadata": {
+    "planName": "Azure Client Initialization Modernization",
+    "projectName": "azure-client-initialization",
+    "language": "java",
+    "createdAt": "2026-06-09T18:40:00Z",
+    "version": "1.0"
+  }
+}
