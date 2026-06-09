@@ -25,7 +25,7 @@ import java.time.ZoneOffset;
  * as required by the modern Azure SDK for Java (com.azure.*).
  */
 public class ResourceGroupTaggingPolicy implements HttpPipelinePolicy {
-    private static final String LOGGING_CONTEXT = "com.microsoft.azure.management.resources.ResourceGroups createOrUpdate";
+    private static final String LOGGING_CONTEXT = "com.azure.resourcemanager.resources.ResourceGroups createOrUpdate";
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override

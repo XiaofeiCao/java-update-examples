@@ -33,4 +33,3 @@ public class AzureInitialization {
             .withSubscription(subscriptionId);
     }
 }
-
